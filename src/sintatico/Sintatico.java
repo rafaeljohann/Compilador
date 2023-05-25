@@ -109,6 +109,12 @@ public class Sintatico {
     static final int T_ID = 32;
     static final int T_OPEN_BRACKET = 33;
     static final int T_CLOSE_BRACKET = 34;
+    static final int T_SWITCH = 35;
+    static final int T_CASE = 36;
+    static final int T_BREAK = 37;
+    static final int T_DEFAULT = 38;
+    static final int T_COLON = 39;
+    static final int T_FOREACH = 40;
     static final int T_ERROR_LEX = 98;
     static final int T_NULL = 99;
 
@@ -204,7 +210,9 @@ public class Sintatico {
                     buscaProximoToken();
                     acumulaRegraSintaticaReconhecida("<G> ::= 'PROGRAM {' <LISTA> <CMDS> '}'");
                 } else {
-                    cmds();
+                    while(token != T_END) {
+                        cmds();
+                    }
                     if (token == T_CLOSE_BRACKET) {
                         buscaProximoToken();
                         acumulaRegraSintaticaReconhecida("<G> ::= 'PROGRAM {' <LISTA> <CMDS> '}'");
@@ -265,10 +273,6 @@ public class Sintatico {
         cmd();
         while (token == T_SEMICOLON) {
             buscaProximoToken();
-
-            if (token == T_CLOSE_BRACKET) {
-                return;
-            }
             cmd();
         }
         acumulaRegraSintaticaReconhecida("<CMDS> ::= <CMD> ; <CMDS> | <CMD>");
@@ -300,6 +304,11 @@ public class Sintatico {
             case T_WRITE:
                 cmd_write();
                 break;
+            case T_SWITCH:
+                cmd_switch();
+                break;
+            case T_CLOSE_BRACKET:
+                break;
             default:
                 registraErroSintatico("Erro Sintatico na linha: " + linhaAtual + "\nReconhecido ao atingir a coluna: " + colunaAtual + "\nLinha do Erro: <" + linhaFonte + ">\nComando nao identificado va aprender a programar pois encontrei: " + lexema);
         }
@@ -319,15 +328,26 @@ public class Sintatico {
                     if (token == T_OPEN_BRACKET) {
                         buscaProximoToken();
                         cmds();
-                        if (token == T_ELSE) {
-                            buscaProximoToken();
-                            cmds();
-                        }
                         if (token == T_CLOSE_BRACKET) {
                             buscaProximoToken();
+                            if (token == T_ELSE) {
+                                buscaProximoToken();
+                                if (token == T_OPEN_BRACKET) {
+                                    buscaProximoToken();
+                                    cmds();
+                                    if (token == T_CLOSE_BRACKET) {
+                                        buscaProximoToken();
+                                        
+                                    } else {
+                                        registraErroSintatico("Erro Sintatico na linha: " + linhaAtual + "\nReconhecido ao atingir a coluna: " + colunaAtual + "\nLinha do Erro: <" + linhaFonte + ">\n'}' esperado mas encontrei: " + lexema);
+                                    }
+                                }
+                            }
+                            acumulaRegraSintaticaReconhecida("<CMD_IF> ::= 'IF(' <CONDICAO>') {' <CMDS> '} ELSE {' <CMDS> '}' ");
                         } else {
                             registraErroSintatico("Erro Sintatico na linha: " + linhaAtual + "\nReconhecido ao atingir a coluna: " + colunaAtual + "\nLinha do Erro: <" + linhaFonte + ">\n'}' esperado mas encontrei: " + lexema);
                         }
+
                     } else {
                         registraErroSintatico("Erro Sintatico na linha: " + linhaAtual + "\nReconhecido ao atingir a coluna: " + colunaAtual + "\nLinha do Erro: <" + linhaFonte + ">\n'{' esperado mas encontrei: " + lexema);
                     }
@@ -338,7 +358,7 @@ public class Sintatico {
                 registraErroSintatico("Erro Sintatico na linha: " + linhaAtual + "\nReconhecido ao atingir a coluna: " + colunaAtual + "\nLinha do Erro: <" + linhaFonte + ">\n'(' esperado mas encontrei: " + lexema);
             }
         }
-        acumulaRegraSintaticaReconhecida("<CMD_IF> ::= 'IF(' <CONDICAO> ') {' <CMDS> '}' | '} ELSE' {' <CMDS> '}'");
+        //acumulaRegraSintaticaReconhecida("<CMD_IF> ::= 'IF(' <CONDICAO> ') {' <CMDS> '}' | '} ELSE' {' <CMDS> '}'");
     }
 
     // <CMD_WHILE> ::= 'WHILE(' <CONDICAO> ') {' <CMDS> '}'
@@ -414,6 +434,84 @@ public class Sintatico {
             }
         } else {
             registraErroSintatico("Erro Sintatico na linha: " + linhaAtual + "\nReconhecido ao atingir a coluna: " + colunaAtual + "\nLinha do Erro: <" + linhaFonte + ">\n'FOR' esperado mas encontrei: " + lexema);
+        }
+    }
+    
+    // <CMD_WHILE> ::= 'WHILE(' <CONDICAO> ') {' <CMDS> '}'
+    private static void cmd_case() throws IOException, ErroLexicoException, ErroSintaticoException {
+        if (token == T_CASE) {
+            buscaProximoToken();
+            e();
+
+            if (token == T_COLON) {
+                buscaProximoToken();
+                cmds();
+
+                if (token == T_BREAK || token == T_CASE || token == T_DEFAULT) {
+                    if (token == T_BREAK || token == T_CASE) {
+                        cmd_case();
+                    }
+                    
+                    if (token == T_DEFAULT) {
+                        buscaProximoToken();
+                        
+                        if (token == T_COLON) {
+                            buscaProximoToken();
+                            cmds();
+                        } else {
+                    registraErroSintatico("Erro Sintatico na linha: " + linhaAtual + "\nReconhecido ao atingir a coluna: " + colunaAtual + "\nLinha do Erro: <" + linhaFonte + ">\n':' esperado mas encontrei: " + lexema);
+                }
+
+                    } else {
+                    registraErroSintatico("Erro Sintatico na linha: " + linhaAtual + "\nReconhecido ao atingir a coluna: " + colunaAtual + "\nLinha do Erro: <" + linhaFonte + ">\n'default' esperado mas encontrei: " + lexema);
+                }
+
+                } else {
+                    registraErroSintatico("Erro Sintatico na linha: " + linhaAtual + "\nReconhecido ao atingir a coluna: " + colunaAtual + "\nLinha do Erro: <" + linhaFonte + ">\n'break' ou 'case' esperado mas encontrei: " + lexema);
+                }
+            } else {
+                registraErroSintatico("Erro Sintatico na linha: " + linhaAtual + "\nReconhecido ao atingir a coluna: " + colunaAtual + "\nLinha do Erro: <" + linhaFonte + ">\n':' esperado mas encontrei: " + lexema);
+            }
+            
+        } else {
+            registraErroSintatico("Erro Sintatico na linha: " + linhaAtual + "\nReconhecido ao atingir a coluna: " + colunaAtual + "\nLinha do Erro: <" + linhaFonte + ">\n'case' esperado mas encontrei: " + lexema);
+        }
+        
+    }
+    
+    private static void cmd_switch() throws IOException, ErroLexicoException, ErroSintaticoException {
+        if (token == T_SWITCH) {
+            buscaProximoToken();
+
+            if (token == T_OPEN_PAR) {
+                buscaProximoToken();
+                e();
+
+                if (token == T_CLOSE_PAR) {
+                    buscaProximoToken();
+                    if (token == T_OPEN_BRACKET) {
+                        buscaProximoToken();
+                        cmd_case();
+                        
+                        buscaProximoToken();
+                        
+                        if (token == T_CLOSE_BRACKET) {
+                            buscaProximoToken();
+                            acumulaRegraSintaticaReconhecida("<CMD_SWITCH> ::= 'SWITCH(' <E> '){ ' <CMDS_CASE> 'default:' <CMDS> '}'");
+                        } else {
+                            registraErroSintatico("Erro Sintatico na linha: " + linhaAtual + "\nReconhecido ao atingir a coluna: " + colunaAtual + "\nLinha do Erro: <" + linhaFonte + ">\n'}' esperado mas encontrei: " + lexema);
+                        }
+                    } else {
+                        registraErroSintatico("Erro Sintatico na linha: " + linhaAtual + "\nReconhecido ao atingir a coluna: " + colunaAtual + "\nLinha do Erro: <" + linhaFonte + ">\n'{' esperado mas encontrei: " + lexema);
+                    }
+                } else {
+                    registraErroSintatico("Erro Sintatico na linha: " + linhaAtual + "\nReconhecido ao atingir a coluna: " + colunaAtual + "\nLinha do Erro: <" + linhaFonte + ">\n')' esperado mas encontrei: " + lexema);
+                }
+            } else {
+                registraErroSintatico("Erro Sintatico na linha: " + linhaAtual + "\nReconhecido ao atingir a coluna: " + colunaAtual + "\nLinha do Erro: <" + linhaFonte + ">\n'(' esperado mas encontrei: " + lexema);
+            }
+        } else {
+            registraErroSintatico("Erro Sintatico na linha: " + linhaAtual + "\nReconhecido ao atingir a coluna: " + colunaAtual + "\nLinha do Erro: <" + linhaFonte + ">\n'enquanto' esperado mas encontrei: " + lexema);
         }
     }
 
@@ -677,6 +775,16 @@ public class Sintatico {
                 token = T_READ;
             } else if (lexema.equals("WRITE")) {
                 token = T_WRITE;
+            } else if (lexema.equals("SWITCH")) {
+                token = T_SWITCH; 
+            } else if (lexema.equals("CASE")) {
+                token = T_CASE; 
+            } else if (lexema.equals(":")) {
+                token = T_COLON;  
+            } else if (lexema.equals("DEFAULT")) {
+                token = T_DEFAULT; 
+            } else if (lexema.equals("BREAK")) {
+                token = T_BREAK; 
             } else {
                 token = T_ID;
             }
@@ -753,6 +861,7 @@ public class Sintatico {
         } else if (lookAhead == ':') {
             sbLexema.append(lookAhead);
             movelookAhead();
+            token = T_COLON;
         } else if (lookAhead == '<') {
             sbLexema.append(lookAhead);
             movelookAhead();
@@ -893,6 +1002,21 @@ public class Sintatico {
                 break;
             case T_NUMBER:
                 tokenLexema.append("T_NUMBER");
+                break;
+            case T_SWITCH:
+                tokenLexema.append("T_SWITCH");
+                break;
+            case T_CASE:
+                tokenLexema.append("T_CASE");
+                break;
+            case T_DEFAULT:
+                tokenLexema.append("T_DEFAULT");
+                break;
+            case T_COLON:
+                tokenLexema.append("T_COLON");
+                break;
+            case T_BREAK:
+                tokenLexema.append("T_BREAK");
                 break;
             case T_ID:
                 tokenLexema.append("T_ID");
