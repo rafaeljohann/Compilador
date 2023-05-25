@@ -1,4 +1,4 @@
-program {
+program
 	var a, b, c;
 	a = 1 + 3;
 	b = 4 - 2;
@@ -21,7 +21,7 @@ program {
 		c = 5+2;
 	}
 	
-	for(var i=5 to 10) {
+	for(var i=5; to 10) {
 		a = 3;
 		b = 3-1;
 	}
@@ -41,5 +41,8 @@ program {
 	read(abcde);
 	write(sjsdjsd);
 	
-
-end
+	foreach(var a in as) {
+		a = 1 + 2 + 3;
+	}
+	
+end;
