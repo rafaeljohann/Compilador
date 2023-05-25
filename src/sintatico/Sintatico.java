@@ -23,9 +23,6 @@ import java.io.FileWriter;
 import java.io.File;
 
 /**
- * Sintatico - Primeira versao do sintatico
- *
- * @author Turma de projeto de compiladores 1/2023
  *
  *
  * gramatica:
@@ -40,13 +37,20 @@ import java.io.File;
  * <CMD> ::= <CMD_IF>
  * <CMD> ::= <CMD_WHILE>
  * <CMD> ::= <CMD_FOR>
+ * <CMD> ::= <CMD_SWITCH>
+ * <CMD> ::= <CMD_FOREACH>
  * <CMD> ::= <CMD_ASSIGNMENT>
  * <CMD> ::= <CMD_READ>
  * <CMD> ::= <CMD_WRITE>
+ * <CMD> ::= <CMD_CASE>
  * <CMD_IF> ::= 'IF (' <CONDICAO> ') {' <CMDS> '}'
  * <CMD_IF> ::= 'IF (' <CONDICAO> ') {' <CMDS> '} ELSE {' <CMDS> '}'
  * <CMD_WHILE> ::= 'WHILE(' <CONDICAO> ') {' <CMDS> '}'
- * <CMD_PARA> ::= 'FOR(' <VAR> '=' <E> 'TO' <E> ') {' <CMDS> '}'
+ * <CMD_FOR> ::= 'FOR(' <CMD_ONLY_ONE_ASSIGNMENT> 'TO' <E> ') {' <CMDS> '}'
+ * <CMD_FOREACH> ::= 'FOREACH(' <VAR> <E> 'IN' <E> ') {' <CMDS> '}'
+ * <CMD_CASE_OR_DEFAULT> ::= ''CASE'|'DEFAULT' '<E>':'|':'' <CMDS> 'BREAK;'
+ * <CMD_SWITCH> ::= 'SWITCH('<E>') {' <CMD_CASE_OR_DEFAULT> '}'
+ * <CMD_ONLY_ONE_ASSIGNMENT> ::= 'VAR' <CMD_ASSIGNMENT>
  * <CMD_ASSIGNMENT> ::= <VAR> '=' <E>
  * <CMD_READ> ::= 'READ' '(' <VAR> ')'
  * <CMD_WRITE> ::= 'WRITE' '(' <E> ')'
@@ -115,6 +119,7 @@ public class Sintatico {
     static final int T_DEFAULT = 38;
     static final int T_COLON = 39;
     static final int T_FOREACH = 40;
+    static final int T_IN = 41;
     static final int T_ERROR_LEX = 98;
     static final int T_NULL = 99;
 
@@ -202,25 +207,18 @@ public class Sintatico {
         if (token == T_PROGRAM) {
             buscaProximoToken();
 
-            if (token == T_OPEN_BRACKET) {
-                buscaProximoToken();
                 lista();
 
-                if (token == T_CLOSE_BRACKET) {
-                    buscaProximoToken();
-                    acumulaRegraSintaticaReconhecida("<G> ::= 'PROGRAM {' <LISTA> <CMDS> '}'");
-                } else {
-                    while(token != T_END) {
-                        cmds();
-                    }
-                    if (token == T_CLOSE_BRACKET) {
-                        buscaProximoToken();
-                        acumulaRegraSintaticaReconhecida("<G> ::= 'PROGRAM {' <LISTA> <CMDS> '}'");
-                    }
+                while(token != T_END) {
+                    cmds();
                 }
-            } else {
-                registraErroSintatico("Erro Sintatico. Linha: " + linhaAtual + "\nColuna: " + colunaAtual + "\nErro: <" + linhaFonte + ">\n('{') esperado, mas encontrei: " + lexema);
-            }
+
+                buscaProximoToken();
+                if (token == T_SEMICOLON) {
+                    acumulaRegraSintaticaReconhecida("<G> ::= 'PROGRAM' <LISTA> <CMDS> '} END;'");
+                } else {
+                    registraErroSintatico("Erro Sintatico. Linha: " + linhaAtual + "\nColuna: " + colunaAtual + "\nErro: <" + linhaFonte + ">\n';' esperado, mas encontrei: " + lexema);
+                }
         } else {
             registraErroSintatico("Erro Sintatico. Linha: " + linhaAtual + "\nColuna: " + colunaAtual + "\nErro: <" + linhaFonte + ">\n('program') esperado, mas encontrei: " + lexema);
         }
@@ -234,6 +232,21 @@ public class Sintatico {
             if (token == T_SEMICOLON) {
                 buscaProximoToken();
                 acumulaRegraSintaticaReconhecida("<LISTA> ::= 'VAR' <VARS>");
+            } else {
+                registraErroSintatico("Erro Sintatico. Linha: " + linhaAtual + "\nColuna: " + colunaAtual + "\nErro: <" + linhaFonte + ">\n';' esperado, mas encontrei: " + lexema);
+            }
+        } else {
+            registraErroSintatico("Erro Sintatico. Linha: " + linhaAtual + "\nColuna: " + colunaAtual + "\nErro: <" + linhaFonte + ">\n('var') esperado, mas encontrei: " + lexema);
+        }
+    }
+    
+    private static void cmd_only_one_assignment() throws IOException, ErroLexicoException, ErroSintaticoException {
+        if (token == T_VAR) {
+            buscaProximoToken();
+            cmd_assignment();
+            if (token == T_SEMICOLON) {
+                buscaProximoToken();
+                acumulaRegraSintaticaReconhecida("<CMD> ::= 'VAR' <CMD_ASSIGNMENT>");
             } else {
                 registraErroSintatico("Erro Sintatico. Linha: " + linhaAtual + "\nColuna: " + colunaAtual + "\nErro: <" + linhaFonte + ">\n';' esperado, mas encontrei: " + lexema);
             }
@@ -284,6 +297,8 @@ public class Sintatico {
     // <CMD> ::= <CMD_ASSINGMENT>
     // <CMD> ::= <CMD_READ>
     // <CMD> ::= <CMD_WRITE>
+    // <CMD> ::= <CMD_SWITCH>
+    // <CMD> ::= <CMD_FOREACH>
     private static void cmd() throws IOException, ErroLexicoException, ErroSintaticoException {
         switch (token) {
             case T_IF:
@@ -307,12 +322,19 @@ public class Sintatico {
             case T_SWITCH:
                 cmd_switch();
                 break;
+            case T_FOREACH:
+                cmd_foreach();
+                break;
             case T_CLOSE_BRACKET:
+                break;
+            case T_BREAK:
+                break;
+            case T_END:
                 break;
             default:
                 registraErroSintatico("Erro Sintatico na linha: " + linhaAtual + "\nReconhecido ao atingir a coluna: " + colunaAtual + "\nLinha do Erro: <" + linhaFonte + ">\nComando nao identificado va aprender a programar pois encontrei: " + lexema);
         }
-        acumulaRegraSintaticaReconhecida("<CMD> ::= <CMD_IF>|<CMD_WHILE>|<CMD_FOR>|<CMD_ASSIGNMENT>|<CMD_READ>|<CMD_WRITE>");
+        acumulaRegraSintaticaReconhecida("<CMD> ::= <CMD_IF>|<CMD_WHILE>|<CMD_FOR>|<CMD_ASSIGNMENT>|<CMD_READ>|<CMD_WRITE>|CMD_SWITCH|<CMD_FOREACH>");
     }
 
     // <CMD_IF> ::= 'IF(' <CONDICAO>') {' <CMDS> '}' 
@@ -337,11 +359,12 @@ public class Sintatico {
                                     cmds();
                                     if (token == T_CLOSE_BRACKET) {
                                         buscaProximoToken();
-                                        
                                     } else {
                                         registraErroSintatico("Erro Sintatico na linha: " + linhaAtual + "\nReconhecido ao atingir a coluna: " + colunaAtual + "\nLinha do Erro: <" + linhaFonte + ">\n'}' esperado mas encontrei: " + lexema);
                                     }
-                                }
+                                } else {
+                        registraErroSintatico("Erro Sintatico na linha: " + linhaAtual + "\nReconhecido ao atingir a coluna: " + colunaAtual + "\nLinha do Erro: <" + linhaFonte + ">\n'{' esperado mas encontrei: " + lexema);
+                    }
                             }
                             acumulaRegraSintaticaReconhecida("<CMD_IF> ::= 'IF(' <CONDICAO>') {' <CMDS> '} ELSE {' <CMDS> '}' ");
                         } else {
@@ -357,8 +380,9 @@ public class Sintatico {
             } else {
                 registraErroSintatico("Erro Sintatico na linha: " + linhaAtual + "\nReconhecido ao atingir a coluna: " + colunaAtual + "\nLinha do Erro: <" + linhaFonte + ">\n'(' esperado mas encontrei: " + lexema);
             }
-        }
-        //acumulaRegraSintaticaReconhecida("<CMD_IF> ::= 'IF(' <CONDICAO> ') {' <CMDS> '}' | '} ELSE' {' <CMDS> '}'");
+        } else {
+                registraErroSintatico("Erro Sintatico na linha: " + linhaAtual + "\nReconhecido ao atingir a coluna: " + colunaAtual + "\nLinha do Erro: <" + linhaFonte + ">\n'IF' esperado mas encontrei: " + lexema);
+            }
     }
 
     // <CMD_WHILE> ::= 'WHILE(' <CONDICAO> ') {' <CMDS> '}'
@@ -392,43 +416,44 @@ public class Sintatico {
                 registraErroSintatico("Erro Sintatico na linha: " + linhaAtual + "\nReconhecido ao atingir a coluna: " + colunaAtual + "\nLinha do Erro: <" + linhaFonte + ">\n'(' esperado mas encontrei: " + lexema);
             }
         } else {
-            registraErroSintatico("Erro Sintatico na linha: " + linhaAtual + "\nReconhecido ao atingir a coluna: " + colunaAtual + "\nLinha do Erro: <" + linhaFonte + ">\n'enquanto' esperado mas encontrei: " + lexema);
+            registraErroSintatico("Erro Sintatico na linha: " + linhaAtual + "\nReconhecido ao atingir a coluna: " + colunaAtual + "\nLinha do Erro: <" + linhaFonte + ">\n'while' esperado mas encontrei: " + lexema);
         }
     }
 
-    // <CMD_FOR> ::= 'FOR(' <VAR> '=' <E> 'TO' <E> ') {' <CMDS> '}' 
+    // <CMD_FOR> ::= 'FOR(' <CMD_ONLY_ONE_ASSIGNMENT> 'TO' <E> ') {' <CMDS> '}
     private static void cmd_for() throws IOException, ErroLexicoException, ErroSintaticoException {
         if (token == T_FOR) {
             buscaProximoToken();
             if (token == T_OPEN_PAR) {
                 buscaProximoToken();
-                var();
-                if (token == T_ASSIGNMENT) {
-                    buscaProximoToken();
-                    e();
+                cmd_only_one_assignment();
                     if (token == T_TO) {
                         buscaProximoToken();
                         e();
-
-                        if (token == T_OPEN_BRACKET) {
+                        
+                        if (token == T_CLOSE_PAR) {
                             buscaProximoToken();
-                            cmds();
-
-                            if (token == T_CLOSE_BRACKET) {
+                            
+                            if (token == T_OPEN_BRACKET) {
                                 buscaProximoToken();
-                                acumulaRegraSintaticaReconhecida("<CMD_FOR> ::= 'FOR(' <VAR> '=' <E> 'TO' <E> ') {' <CMDS> '}'");
+                                cmds();
+
+                                if (token == T_CLOSE_BRACKET) {
+                                    buscaProximoToken();
+                                    acumulaRegraSintaticaReconhecida("<CMD_FOR> ::= 'FOR(' <CMD_ONLY_ONE_ASSIGNMENT> 'TO' <E> ') {' <CMDS> '}'");
+                                } else {
+                                    registraErroSintatico("Erro Sintatico na linha: " + linhaAtual + "\nReconhecido ao atingir a coluna: " + colunaAtual + "\nLinha do Erro: <" + linhaFonte + ">\n'}' esperado mas encontrei: " + lexema);
+                                }
                             } else {
-                                registraErroSintatico("Erro Sintatico na linha: " + linhaAtual + "\nReconhecido ao atingir a coluna: " + colunaAtual + "\nLinha do Erro: <" + linhaFonte + ">\n'}' esperado mas encontrei: " + lexema);
+                                registraErroSintatico("Erro Sintatico na linha: " + linhaAtual + "\nReconhecido ao atingir a coluna: " + colunaAtual + "\nLinha do Erro: <" + linhaFonte + ">\n'{' esperado mas encontrei: " + lexema);
                             }
+                            
                         } else {
-                            registraErroSintatico("Erro Sintatico na linha: " + linhaAtual + "\nReconhecido ao atingir a coluna: " + colunaAtual + "\nLinha do Erro: <" + linhaFonte + ">\n'{' esperado mas encontrei: " + lexema);
+                            registraErroSintatico("Erro Sintatico na linha: " + linhaAtual + "\nReconhecido ao atingir a coluna: " + colunaAtual + "\nLinha do Erro: <" + linhaFonte + ">\n')' esperado mas encontrei: " + lexema);
                         }
                     } else {
                         registraErroSintatico("Erro Sintatico na linha: " + linhaAtual + "\nReconhecido ao atingir a coluna: " + colunaAtual + "\nLinha do Erro: <" + linhaFonte + ">\n'TO' esperado mas encontrei: " + lexema);
                     }
-                } else {
-                    registraErroSintatico("Erro Sintatico na linha: " + linhaAtual + "\nReconhecido ao atingir a coluna: " + colunaAtual + "\nLinha do Erro: <" + linhaFonte + ">\n'=' esperado mas encontrei: " + lexema);
-                }
             } else {
                 registraErroSintatico("Erro Sintatico na linha: " + linhaAtual + "\nReconhecido ao atingir a coluna: " + colunaAtual + "\nLinha do Erro: <" + linhaFonte + ">\n'(' esperado mas encontrei: " + lexema);
             }
@@ -437,34 +462,83 @@ public class Sintatico {
         }
     }
     
-    // <CMD_WHILE> ::= 'WHILE(' <CONDICAO> ') {' <CMDS> '}'
-    private static void cmd_case() throws IOException, ErroLexicoException, ErroSintaticoException {
-        if (token == T_CASE) {
+    // <CMD_FOREACH> ::= 'FOREACH(' <VAR> <E> 'IN' <E> ') {' <CMDS> '}' 
+    private static void cmd_foreach() throws IOException, ErroLexicoException, ErroSintaticoException {
+        if (token == T_FOREACH) {
             buscaProximoToken();
-            e();
+            if (token == T_OPEN_PAR) {
+                buscaProximoToken();
+                
+                if (token == T_VAR) {
+                    buscaProximoToken();
+                    e();
+                    if (token == T_IN) {
+                        buscaProximoToken();
+                        e();
+                        
+                        if (token == T_CLOSE_PAR) {
+                            buscaProximoToken();
+                            
+                            if (token == T_OPEN_BRACKET) {
+                                buscaProximoToken();
+                                cmds();
 
+                                if (token == T_CLOSE_BRACKET) {
+                                    buscaProximoToken();
+                                } else {
+                                    registraErroSintatico("Erro Sintatico na linha: " + linhaAtual + "\nReconhecido ao atingir a coluna: " + colunaAtual + "\nLinha do Erro: <" + linhaFonte + ">\n'}' esperado mas encontrei: " + lexema);
+                                }
+                            } else {
+                                registraErroSintatico("Erro Sintatico na linha: " + linhaAtual + "\nReconhecido ao atingir a coluna: " + colunaAtual + "\nLinha do Erro: <" + linhaFonte + ">\n'{' esperado mas encontrei: " + lexema);
+                            }
+                            
+                        } else {
+                            registraErroSintatico("Erro Sintatico na linha: " + linhaAtual + "\nReconhecido ao atingir a coluna: " + colunaAtual + "\nLinha do Erro: <" + linhaFonte + ">\n')' esperado mas encontrei: " + lexema);
+                        }
+                    } else {
+                            registraErroSintatico("Erro Sintatico na linha: " + linhaAtual + "\nReconhecido ao atingir a coluna: " + colunaAtual + "\nLinha do Erro: <" + linhaFonte + ">\n'IN' esperado mas encontrei: " + lexema);
+                        }
+                } else {
+                            registraErroSintatico("Erro Sintatico na linha: " + linhaAtual + "\nReconhecido ao atingir a coluna: " + colunaAtual + "\nLinha do Erro: <" + linhaFonte + ">\n'VAR' esperado mas encontrei: " + lexema);
+                        }
+            } else {
+                registraErroSintatico("Erro Sintatico na linha: " + linhaAtual + "\nReconhecido ao atingir a coluna: " + colunaAtual + "\nLinha do Erro: <" + linhaFonte + ">\n'(' esperado mas encontrei: " + lexema);
+            }
+        } else {
+            registraErroSintatico("Erro Sintatico na linha: " + linhaAtual + "\nReconhecido ao atingir a coluna: " + colunaAtual + "\nLinha do Erro: <" + linhaFonte + ">\n'FOREACH' esperado mas encontrei: " + lexema);
+        }
+        acumulaRegraSintaticaReconhecida("<CMD_FOREACH> ::= 'FOREACH(' <VAR> <E> 'IN' <E> ') {' <CMDS> '}'");
+    }
+    
+    // <CMD_CASE_OR_DEFAULT> ::= ''CASE'|'DEFAULT' '<E>':'|':'' <CMDS> 'BREAK;'
+    private static void cmd_case_or_default() throws IOException, ErroLexicoException, ErroSintaticoException {
+        if (token == T_CASE || token == T_DEFAULT) {
+            if (token == T_CASE) {
+                buscaProximoToken();
+                e();
+            } else {
+                buscaProximoToken();
+            } 
             if (token == T_COLON) {
                 buscaProximoToken();
                 cmds();
 
                 if (token == T_BREAK || token == T_CASE || token == T_DEFAULT) {
-                    if (token == T_BREAK || token == T_CASE) {
-                        cmd_case();
-                    }
-                    
-                    if (token == T_DEFAULT) {
+                    if (token == T_CASE) {
+                        cmd_case_or_default();
+                    } else if (token == T_BREAK) {
                         buscaProximoToken();
                         
-                        if (token == T_COLON) {
+                        if (token == T_SEMICOLON) {
                             buscaProximoToken();
-                            cmds();
+                            
+                            if (token == T_CASE || token == T_DEFAULT) {
+                                cmd_case_or_default();
+                            }
                         } else {
-                    registraErroSintatico("Erro Sintatico na linha: " + linhaAtual + "\nReconhecido ao atingir a coluna: " + colunaAtual + "\nLinha do Erro: <" + linhaFonte + ">\n':' esperado mas encontrei: " + lexema);
-                }
-
-                    } else {
-                    registraErroSintatico("Erro Sintatico na linha: " + linhaAtual + "\nReconhecido ao atingir a coluna: " + colunaAtual + "\nLinha do Erro: <" + linhaFonte + ">\n'default' esperado mas encontrei: " + lexema);
-                }
+                            registraErroSintatico("Erro Sintatico na linha: " + linhaAtual + "\nReconhecido ao atingir a coluna: " + colunaAtual + "\nLinha do Erro: <" + linhaFonte + ">\n';' esperado mas encontrei: " + lexema);
+                        }
+                    }
 
                 } else {
                     registraErroSintatico("Erro Sintatico na linha: " + linhaAtual + "\nReconhecido ao atingir a coluna: " + colunaAtual + "\nLinha do Erro: <" + linhaFonte + ">\n'break' ou 'case' esperado mas encontrei: " + lexema);
@@ -474,11 +548,12 @@ public class Sintatico {
             }
             
         } else {
-            registraErroSintatico("Erro Sintatico na linha: " + linhaAtual + "\nReconhecido ao atingir a coluna: " + colunaAtual + "\nLinha do Erro: <" + linhaFonte + ">\n'case' esperado mas encontrei: " + lexema);
+            registraErroSintatico("Erro Sintatico na linha: " + linhaAtual + "\nReconhecido ao atingir a coluna: " + colunaAtual + "\nLinha do Erro: <" + linhaFonte + ">\n'case' ou 'default' esperados mas encontrei: " + lexema);
         }
-        
+        acumulaRegraSintaticaReconhecida("<CMD_CASE_OR_DEFAULT> ::= ''CASE'|'DEFAULT' '<E>':'|':'' <CMDS> 'BREAK;'");
     }
     
+    //'SWITCH('<E>') {' <CMD_CASE_OR_DEFAULT> '}'
     private static void cmd_switch() throws IOException, ErroLexicoException, ErroSintaticoException {
         if (token == T_SWITCH) {
             buscaProximoToken();
@@ -491,13 +566,11 @@ public class Sintatico {
                     buscaProximoToken();
                     if (token == T_OPEN_BRACKET) {
                         buscaProximoToken();
-                        cmd_case();
-                        
-                        buscaProximoToken();
+                        cmd_case_or_default();
                         
                         if (token == T_CLOSE_BRACKET) {
                             buscaProximoToken();
-                            acumulaRegraSintaticaReconhecida("<CMD_SWITCH> ::= 'SWITCH(' <E> '){ ' <CMDS_CASE> 'default:' <CMDS> '}'");
+                            acumulaRegraSintaticaReconhecida("<CMD_SWITCH> ::= 'SWITCH('<E>') {' <CMD_CASE_OR_DEFAULT> '}'");
                         } else {
                             registraErroSintatico("Erro Sintatico na linha: " + linhaAtual + "\nReconhecido ao atingir a coluna: " + colunaAtual + "\nLinha do Erro: <" + linhaFonte + ">\n'}' esperado mas encontrei: " + lexema);
                         }
@@ -511,7 +584,7 @@ public class Sintatico {
                 registraErroSintatico("Erro Sintatico na linha: " + linhaAtual + "\nReconhecido ao atingir a coluna: " + colunaAtual + "\nLinha do Erro: <" + linhaFonte + ">\n'(' esperado mas encontrei: " + lexema);
             }
         } else {
-            registraErroSintatico("Erro Sintatico na linha: " + linhaAtual + "\nReconhecido ao atingir a coluna: " + colunaAtual + "\nLinha do Erro: <" + linhaFonte + ">\n'enquanto' esperado mas encontrei: " + lexema);
+            registraErroSintatico("Erro Sintatico na linha: " + linhaAtual + "\nReconhecido ao atingir a coluna: " + colunaAtual + "\nLinha do Erro: <" + linhaFonte + ">\n'SWITCH' esperado mas encontrei: " + lexema);
         }
     }
 
@@ -785,6 +858,10 @@ public class Sintatico {
                 token = T_DEFAULT; 
             } else if (lexema.equals("BREAK")) {
                 token = T_BREAK; 
+            } else if (lexema.equals("FOREACH")) {
+                token = T_FOREACH; 
+            } else if (lexema.equals("IN")) {
+                token = T_IN;
             } else {
                 token = T_ID;
             }
@@ -1017,6 +1094,12 @@ public class Sintatico {
                 break;
             case T_BREAK:
                 tokenLexema.append("T_BREAK");
+                break;
+            case T_FOREACH:
+                tokenLexema.append("T_FOREACH");
+                break;
+            case T_IN:
+                tokenLexema.append("T_IN");
                 break;
             case T_ID:
                 tokenLexema.append("T_ID");
