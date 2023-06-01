@@ -27,7 +27,7 @@ import java.io.File;
  *
  * gramatica:
  *
- * <G> ::= 'PROGRAM {' <LISTA> <CMDS> '}'
+ * <G> ::= 'PROGRAM' <LISTA> <CMDS> 'END;'
  * <LISTA> ::= 'VAR' <VARS> ';'
  * <VARS> ::= <VAR> , <VARS>
  * <VARS> ::= <VAR>
@@ -202,7 +202,7 @@ public class Sintatico {
         }
     }
 
-    // <G> ::= 'PROGRAM {' <LISTA> <CMDS> '}'
+    // <G> ::= 'PROGRAM' <LISTA> <CMDS> 'END;'
     private static void g() throws IOException, ErroLexicoException, ErroSintaticoException {
         if (token == T_PROGRAM) {
             buscaProximoToken();
@@ -215,7 +215,7 @@ public class Sintatico {
 
                 buscaProximoToken();
                 if (token == T_SEMICOLON) {
-                    acumulaRegraSintaticaReconhecida("<G> ::= 'PROGRAM' <LISTA> <CMDS> '} END;'");
+                    acumulaRegraSintaticaReconhecida("<G> ::= 'PROGRAM' <LISTA> <CMDS> 'END;'");
                 } else {
                     registraErroSintatico("Erro Sintatico. Linha: " + linhaAtual + "\nColuna: " + colunaAtual + "\nErro: <" + linhaFonte + ">\n';' esperado, mas encontrei: " + lexema);
                 }
