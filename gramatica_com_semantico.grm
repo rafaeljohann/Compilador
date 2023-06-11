@@ -1,5 +1,5 @@
 program
-	var a, b, c;
+	var a, b, c, d, as;
 	a = 1 + 3;
 	b = 4 - 2;
 	c = 5 * 9;
@@ -9,7 +9,7 @@ program
 	b = d*c;
 	
 	if (a > b) {
-		d = l;
+		d = 1;
 		a = 3;
 	} else {
 		d = 2;
@@ -38,11 +38,11 @@ program
 			break;
 	}
 	
-	read(abcde);
-	write(sjsdjsd);
+	read(a);
+	write(d);
 	
-	foreach(var a in as) {
-		a = 1 + 2 + 3;
+	foreach(var aItem in as) {
+		aItem = 1 + 2 + 3;
 	}
 	
 end;
